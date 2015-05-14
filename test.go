@@ -29,53 +29,26 @@ func loadPage(title string) (*Page, error){
 }
 
 func handler(w http.ResponseWriter, r *http.Request){
-	fmt.Fprintf(w, "hi there %s", r.URL.Path[1:])
 	fmt.Println("printing headers")
 	fmt.Println(r.Header)
-	//r.ParseForm()
 	body, _ := ioutil.ReadAll(r.Body)
 	fmt.Println("printing body")
 	fmt.Println(string(body))
-	//fmt.Println(r.Form)
-	//fmt.Println(r.Body)
-	fmt.Println("printing map")
-	fmt.Println(r.Form)
 	store := &Operation{}
 	if string(body) != ""{
 		m := string(body)
 		json.Unmarshal([]byte(m), &store)
-		//fmt.Println(k)
-		//fmt.Println(store)
-		
 		sum := 0
 		for _, e := range store.Add{
 			sum += e
-			//fmt.Println(e)
 		}
-		//fmt.Println(sum)
-		fmt.Fprintf(w, "the result was %d", sum)
-	}else{
-		m := r.Form
-			for k := range m {
-				json.Unmarshal([]byte(k), &store)
-				//fmt.Println(k)
-				//fmt.Println(store)
-				
-				sum := 0
-				for _, e := range store.Add{
-					sum += e
-					//fmt.Println(e)
-				}
-				//fmt.Println(sum)
-				fmt.Fprintf(w, "the result was %d", sum)
-			}
+		fmt.Fprintf(w, "{\"result\":%d}", sum)
 	}
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request){
 	title := r.URL.Path[len("/view/"):]
 	p, _ := loadPage(title)
-	//fmt.Fprintf(w, "header=%s body=%s", p.Title, p.Body)
 	fmt.Fprintf(w, "%s", p.Body)
 }
 
