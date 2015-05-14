@@ -5,6 +5,7 @@ import (
 	"net/http" 
 	"io/ioutil"
 	"encoding/json"
+	"github.com/garyburd/redigo/redis"
 	)
 
 type Page struct{
@@ -22,34 +23,53 @@ func (p *Page) save() error {
 }
 
 func loadPage(title string) (*Page, error){
-	filename := title + ".txt"
+	filename := title + ".html"
 	body, _ := ioutil.ReadFile(filename)
 	return &Page{Title:title, Body:body}, nil
 }
 
 func handler(w http.ResponseWriter, r *http.Request){
 	fmt.Fprintf(w, "hi there %s", r.URL.Path[1:])
-	r.ParseForm()
+	fmt.Println("printing headers")
+	fmt.Println(r.Header)
+	//r.ParseForm()
+	body, _ := ioutil.ReadAll(r.Body)
+	fmt.Println("printing body")
+	fmt.Println(string(body))
 	//fmt.Println(r.Form)
 	//fmt.Println(r.Body)
-	m := r.Form
-	fmt.Println(m)
+	fmt.Println("printing map")
+	fmt.Println(r.Form)
 	store := &Operation{}
-	for k := range m {
-		json.Unmarshal([]byte(k), &store)
-		fmt.Println(k)
-		fmt.Println(store)
+	if string(body) != ""{
+		m := string(body)
+		json.Unmarshal([]byte(m), &store)
+		//fmt.Println(k)
+		//fmt.Println(store)
 		
 		sum := 0
 		for _, e := range store.Add{
 			sum += e
-			fmt.Println(e)
+			//fmt.Println(e)
 		}
-		fmt.Println(sum)
+		//fmt.Println(sum)
 		fmt.Fprintf(w, "the result was %d", sum)
+	}else{
+		m := r.Form
+			for k := range m {
+				json.Unmarshal([]byte(k), &store)
+				//fmt.Println(k)
+				//fmt.Println(store)
+				
+				sum := 0
+				for _, e := range store.Add{
+					sum += e
+					//fmt.Println(e)
+				}
+				//fmt.Println(sum)
+				fmt.Fprintf(w, "the result was %d", sum)
+			}
 	}
-
-	//fmt.Println(m)
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request){
@@ -59,14 +79,30 @@ func viewHandler(w http.ResponseWriter, r *http.Request){
 	fmt.Fprintf(w, "%s", p.Body)
 }
 
+func visitedHandler(w http.ResponseWriter, r *http.Request){
+	//title := r.URL.Path[len("/visited/"):]
+	c, err := redis.Dial("tcp", ":6379") 
+	if err != nil {
+	panic(err)
+}
+	defer c.Close()
+	
+	items, err := redis.Values(c.Do("smembers", "visited"))
+	if err != nil {
+	fmt.Fprintf(w, "%s", err)
+}
+	
+	fmt.Fprintf(w, "%s", items)
+}
+
+
 func main(){
-	p1 := &Page{Title:"testpage", Body: []byte("this is the test")}
-	p1.save()
-	p2, _  := loadPage("testpage")
-	fmt.Println(string(p2.Body))
+	
+	
+
+	http.HandleFunc("/visited/", visitedHandler)
 	http.HandleFunc("/", handler)
 	http.HandleFunc("/view/", viewHandler)
 	http.ListenAndServe(":8090", nil)
-	fmt.Println("hello world")
 
 }

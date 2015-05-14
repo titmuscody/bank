@@ -1,0 +1,36 @@
+<html>
+<head>
+<script>
+function add_value(){
+var toAdd = document.getElementById('trans_name');
+var list = document.getElementById('item_list');
+var option = document.createElement("option");
+option.text = toAdd.value;
+list.add(option);
+}
+function sub(){
+var tosend = [];
+var list = document.getElementById('item_list');
+for(var i = 0; i < list.length; ++i){
+tosend[tosend.length] = parseInt(list[i].value);
+}
+var obj = {add:tosend};
+var xhr = new XMLHttpRequest();
+xhr.open("POST", "http://192.168.2.18:8090/", true);
+xhr.onreadystatechange=function(){
+if(xhr.readyState==4){
+document.getElementById("return").value = xhr.responseText;
+}
+}
+xhr.send(JSON.stringify(obj));
+}
+</script>
+</head>
+<form action="http://192.168.2.18:8090/testing" method="POST">
+<select id="item_list" multiple/>
+<input type="text" name="add" id="return" />
+<input type="text" id="trans_name"/>
+<input type="button" value="add" onclick=add_value() />
+<input type="button" value="send" onclick=sub() />
+</form>
+</html>
