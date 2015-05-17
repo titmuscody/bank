@@ -16,7 +16,7 @@ tosend[tosend.length] = parseInt(list[i].value);
 }
 var obj = {add:tosend};
 var xhr = new XMLHttpRequest();
-xhr.open("POST", "http://192.168.2.18:8090/", true);
+xhr.open("POST", "http://192.168.2.32:8090/", true);
 xhr.onreadystatechange=function(){
 //alert(xhr.readyState);
 if(xhr.readyState==4){
@@ -28,7 +28,7 @@ xhr.send(JSON.stringify(obj));
 }
 </script>
 </head>
-<form action="http://192.168.2.18:8090/testing" method="POST">
+<form action="http://192.168.2.32:8090/testing" method="POST">
 <select id="item_list" multiple/>
 <input type="text" name="add" id="return" />
 <input type="text" id="trans_name"/>

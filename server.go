@@ -18,7 +18,7 @@ type Operation struct {
 }
 
 func (p *Page) save() error {
-	filename := p.Title + ".txt"
+	filename := p.Title + ".html"
 	return ioutil.WriteFile(filename, p.Body, 0600)
 }
 
@@ -70,8 +70,6 @@ func visitedHandler(w http.ResponseWriter, r *http.Request){
 
 
 func main(){
-	
-	
 
 	http.HandleFunc("/visited/", visitedHandler)
 	http.HandleFunc("/", handler)
