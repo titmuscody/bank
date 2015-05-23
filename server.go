@@ -8,8 +8,12 @@ import (
 	"encoding/json"
 	"github.com/garyburd/redigo/redis"
 	"crypto/sha512"
+    "crypto/hmac"
 	"math/rand"
-	)
+	"encoding/hex"
+    //"strconv"
+    "strings"
+    )
 
 type Page struct{
 	Title string
@@ -89,23 +93,55 @@ func visitedHandler(w http.ResponseWriter, r *http.Request){
 
 func loginHandler(w http.ResponseWriter, r *http.Request){
 	//mess := "my secret code"
-	pass := r.Header["Authorization"]
+	//pass := r.Header["Authorization"]
 	//cookie := http.Cookie{Name:"username", Value:"me", Expires:time.Now().Add(364),}
 	//http.SetCookie(w, &cookie)
+    auth := r.Header["Authorization"][0]
 	conn := database.Get()
 	defer conn.Close()
-	secret := rand.Int()
-	fmt.Printf("generating random number %d\n", secret)
-	conn.Do("set", "temp", secret)
-	conn.Do("expire", "temp", 600)
-	
-	fmt.Fprintf(w, "%s", pass[0])
-	fmt.Fprintf(w, "%s", sha512.Sum512([]byte(pass[0])))
-	fmt.Print(r.Header["Authorization"])
-	//hash := sha256.New()
-	data := []byte("my data")
-	fmt.Println(string(data))
-	fmt.Printf("%x\n", sha512.Sum512(data))
+    fmt.Printf("auth=%s\n", auth)
+    if strings.Contains(auth, ":") {
+        fmt.Println("in primary")
+
+        userPass := strings.Split(auth, ":")
+        username := userPass[0]
+        pass := userPass[1]
+        user := strings.Join([]string{"user", username}, ":")
+        myKey, _ := conn.Do("hget", user, "key")
+        myPass, _ := conn.Do("hget", user, "password")
+        fmt.Println(string(myKey.([]uint8)))
+        fmt.Println(string(myPass.([]uint8)))
+        hash := hmac.New(sha512.New, []byte(string(myKey.([]uint8))))
+        hash.Write([]byte(myPass.([]uint8)))
+        myHash := hex.EncodeToString(hash.Sum(nil))
+        fmt.Println(myHash)
+        conn.Do("hset", user, "key", rand.Int())
+        if myHash == pass {
+            fmt.Fprintf(w, "%s", "you have logged in")
+
+        } else {
+            fmt.Fprintf(w, "%s", "failure no log in for you")
+
+        }
+    } else if auth != "" {
+        //get number and send
+        fmt.Println("in auth")
+        user := strings.Join([]string{"user", auth}, ":")
+        key, _ := conn.Do("hget", user, "key")
+        //fmt.Println(string(key.([]uint8)))
+        //key_val := strconv.Itoa(int(key.(uint8[])[0]))
+        //key_val := key.(string)
+        fmt.Fprintf(w, "%s", string(key.([]uint8)))
+        
+    } else {
+        fmt.Println("in else")
+        fmt.Fprintf(w, "%s", "unable to determine intentions")
+    }
+    //io.WriteString(hash, "password")
+	//hash.Write(data)
+    //fmt.Println(hex.EncodeToString(hash))
+    
+    // correct= fmt.Println(hex.EncodeToString(hash.Sum(nil)))
 	
 	
 }
