@@ -1,17 +1,12 @@
 package main
 
 import (
+    "github.com/titmuscody/bank/db"
 	"fmt"
 	"time"
 	"net/http" 
 	"io/ioutil"
 	"encoding/json"
-	"github.com/garyburd/redigo/redis"
-	"crypto/sha512"
-    "crypto/hmac"
-	"math/rand"
-	"encoding/hex"
-    //"strconv"
     "strings"
     )
 
@@ -51,13 +46,14 @@ func handler(w http.ResponseWriter, r *http.Request){
 		}
 		fmt.Fprintf(w, "{\"result\":%d}", sum)
 	}
+    fmt.Fprintf(w, "%d", db.GetData())
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request){
-	expires := time.Now().Add(365 * 24 * time.Hour)
-	cookie := http.Cookie{Name:"username", Value:"me", Expires:expires,
-		HttpOnly:false}
-	http.SetCookie(w, &cookie)
+	//expires := time.Now().Add(365 * 24 * time.Hour)
+	//cookie := http.Cookie{Name:"username", Value:"me", Expires:expires,
+	//	HttpOnly:false}
+	//http.SetCookie(w, &cookie)
 	title := r.URL.Path[len("/view/"):]
 	p, _ := loadPage(title)
 	fmt.Println("starting cookie")
@@ -78,96 +74,78 @@ func scriptHandler(w http.ResponseWriter, r *http.Request){
 	fmt.Fprintf(w, "%s", body)
 }
 
+func cssHandler(w http.ResponseWriter, r *http.Request){
+	title := r.URL.Path[len("/css/"):]
+	body, _ := ioutil.ReadFile(title + ".css")
+	//p, _ := loadPage(title)
+    w.Header().Set("Content-Type", "text/css")
+	fmt.Fprintf(w, "%s", body)
+}
+
 func visitedHandler(w http.ResponseWriter, r *http.Request){
 	//title := r.URL.Path[len("/visited/"):]
 	
-	c := database.Get()
-	defer c.Close()
-	items, err := redis.Values(c.Do("smembers", "visited"))
-	if err != nil {
-	fmt.Fprintf(w, "%s", err)
-}
+	//c := database.Get()
+	//defer c.Close()
+	//items, err := redis.Values(c.Do("smembers", "visited"))
+	//if err != nil {
+	//fmt.Fprintf(w, "%s", err)
+//}
 	
-	fmt.Fprintf(w, "%s", items)
+	//fmt.Fprintf(w, "%s", items)
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request){
-	//mess := "my secret code"
-	//pass := r.Header["Authorization"]
-	//cookie := http.Cookie{Name:"username", Value:"me", Expires:time.Now().Add(364),}
-	//http.SetCookie(w, &cookie)
     auth := r.Header["Authorization"][0]
-	conn := database.Get()
-	defer conn.Close()
-    fmt.Printf("auth=%s\n", auth)
     if strings.Contains(auth, ":") {
-        fmt.Println("in primary")
-
         userPass := strings.Split(auth, ":")
         username := userPass[0]
         pass := userPass[1]
-        user := strings.Join([]string{"user", username}, ":")
-        myKey, _ := conn.Do("hget", user, "key")
-        myPass, _ := conn.Do("hget", user, "password")
-        fmt.Println(string(myKey.([]uint8)))
-        fmt.Println(string(myPass.([]uint8)))
-        hash := hmac.New(sha512.New, []byte(string(myKey.([]uint8))))
-        hash.Write([]byte(myPass.([]uint8)))
-        myHash := hex.EncodeToString(hash.Sum(nil))
-        fmt.Println(myHash)
-        conn.Do("hset", user, "key", rand.Int())
-        if myHash == pass {
-            fmt.Fprintf(w, "%s", "you have logged in")
-
+        userHash := db.GetUserHash(username)
+        if userHash == pass {
+            fmt.Println("user authenticated")
+            expires := time.Now().Add(24 * time.Hour)
+            cookie := http.Cookie{Name:"Id", Value:db.CreateSessionId(username), Expires:expires, Path:"/"}
+            http.SetCookie(w, &cookie)
         } else {
-            fmt.Fprintf(w, "%s", "failure no log in for you")
+            fmt.Fprintf(w, "%s", "no log in for you")
 
         }
     } else if auth != "" {
-        //get number and send
-        fmt.Println("in auth")
-        user := strings.Join([]string{"user", auth}, ":")
-        key, _ := conn.Do("hget", user, "key")
-        //fmt.Println(string(key.([]uint8)))
-        //key_val := strconv.Itoa(int(key.(uint8[])[0]))
-        //key_val := key.(string)
-        fmt.Fprintf(w, "%s", string(key.([]uint8)))
-        
+        key := db.GetUserKey(auth)
+        fmt.Fprintf(w, "%s", key)
     } else {
         fmt.Println("in else")
         fmt.Fprintf(w, "%s", "unable to determine intentions")
     }
-    //io.WriteString(hash, "password")
-	//hash.Write(data)
-    //fmt.Println(hex.EncodeToString(hash))
+	
+}
+
+func secureHandler(w http.ResponseWriter, r *http.Request){
+    id, _ := r.Cookie("Id")
+    username := db.Validate(id.Value)
+    if username == "" {
+        fmt.Fprintf(w, "%s", "please re-authenticate")
+        return
+    }
+        cookie := http.Cookie{Name:"Id", Value:db.CreateSessionId(username), Expires:time.Now().Add(time.Duration(15)*time.Minute), Path:"/"}
+        http.SetCookie(w, &cookie)
+    fmt.Println("opening page for " + username)
+	title := r.URL.Path[len("/secure/"):]
+    body, _ := ioutil.ReadFile(title)
+    fmt.Fprintf(w, "%s", body)
     
-    // correct= fmt.Println(hex.EncodeToString(hash.Sum(nil)))
-	
-	
+
 }
 
-func newPool() *redis.Pool {
-
-	return &redis.Pool{
-		MaxIdle:3,
-		IdleTimeout:20* time.Second,
-		Dial: func() (redis.Conn, error){
-		c, err := redis.Dial("tcp", ":6379")
-		if err != nil{panic(err.Error())}
-		return c, err	
-			
-		},
-
-	}
-}
-
-var database = newPool()
 func main(){
 
 	http.HandleFunc("/visited/", visitedHandler)
 	http.HandleFunc("/", handler)
 	http.HandleFunc("/view/", viewHandler)
 	http.HandleFunc("/scripts/", scriptHandler)
+	http.HandleFunc("/css/", cssHandler)
+    http.HandleFunc("/secure/", secureHandler)
 	http.HandleFunc("/login/", loginHandler)
 	
 	http.ListenAndServe(":8090", nil)
