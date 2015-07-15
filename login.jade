@@ -1,0 +1,17 @@
+doctype html
+html(lang="en")
+  head
+    script(src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js")
+    script(src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/hmac-sha512.js")
+    script(src="/scripts/login")
+    link(href="/css/general" type="text/css" rel="stylesheet")
+    title Bank
+  body
+    .content
+      label(for="username") Username:
+      input#username(type="text")
+      label(for="password") Password:
+      input#password(type="password")
+      button#submit-button Login
+      button#connect Create Connection
+      input#text(type="text" onclick="createSock")
